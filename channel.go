@@ -20,29 +20,29 @@ type connection struct {
 type channel struct {
 	Connections *list.List
 	Queue       *Queue
-	stop        chan int
+	sync.Mutex
 }
 
 var (
-	defaultChannels map[string]channel
-	mu              sync.Mutex
-	r               *rand.Rand
+	channelRegister map[string]channel
+	registerMutex   sync.Mutex
+	idRander        *rand.Rand
 )
 
 func init() {
-	defaultChannels = make(map[string]channel)
-	r = rand.New(rand.NewSource(time.Now().UnixNano()))
+	channelRegister = make(map[string]channel)
+	idRander = rand.New(rand.NewSource(time.Now().UnixNano()))
 }
 
 func getOrCreateChannel(channelName string) *channel {
-	mu.Lock()
-	defer mu.Unlock()
-	c, ok := defaultChannels[channelName]
+	registerMutex.Lock()
+	defer registerMutex.Unlock()
+	c, ok := channelRegister[channelName]
 	if !ok {
 		connList := list.New()
 		queue := NewQueue(64, time.Minute, time.Minute)
-		c = channel{connList, queue, make(chan int)}
-		defaultChannels[channelName] = c
+		c = channel{connList, queue, sync.Mutex{}}
+		channelRegister[channelName] = c
 	}
 	return &c
 }
@@ -56,11 +56,21 @@ func PushMessage(channelName string, data []byte) {
 }
 
 func notifyClient(c *channel) {
+	c.Lock()
+	defer c.Unlock()
+	if c.Connections.Len() == 0 {
+		return
+	}
 	message := c.Queue.Dequeue()
 	if message != nil {
 		for e := c.Connections.Front(); e != nil; e = e.Next() {
 			if connE, ok := e.Value.(connection); ok {
-				connE.Receiver <- message
+				// non blocking
+				select {
+				case connE.Receiver <- message:
+				default:
+				}
+
 			}
 		}
 	}
@@ -70,7 +80,10 @@ func AddConnection(channelName string) *connection {
 	c := getOrCreateChannel(channelName)
 
 	recvChan := make(chan []byte)
-	conn := connection{r.Int(), recvChan, channelName}
+	conn := connection{idRander.Int(), recvChan, channelName}
+
+	c.Lock()
+	defer c.Unlock()
 	c.Connections.PushBack(conn)
 	// new here
 	go notifyClient(c)
@@ -78,12 +91,18 @@ func AddConnection(channelName string) *connection {
 }
 
 func DelConnection(conn *connection) bool {
-	channel, ok := defaultChannels[conn.Channel]
+	registerMutex.Lock()
+	channel, ok := channelRegister[conn.Channel]
+	registerMutex.Unlock()
 	if !ok {
 		return false
 	}
+
+	channel.Lock()
+	defer channel.Unlock()
 	for e := channel.Connections.Front(); e != nil; e = e.Next() {
 		if connE, ok := e.Value.(connection); ok {
+			close(connE.Receiver)
 			if connE.ID == conn.ID {
 				channel.Connections.Remove(e)
 				break
@@ -91,13 +110,4 @@ func DelConnection(conn *connection) bool {
 		}
 	}
 	return true
-}
-
-func GetMessage(channel string) chan *Message {
-	c := make(chan *Message)
-
-	go func() {
-		c <- &Message{Body: []byte("hello")}
-	}()
-	return c
 }

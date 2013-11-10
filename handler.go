@@ -6,11 +6,15 @@ import (
 	"time"
 )
 
+// block to get messages.
+// if the client does not close normally,
+// we don't know if the client is alive,
+// so the message will be dequeue and send to the dead client.
 func SyncGet(w http.ResponseWriter, req *http.Request) {
 	queryString := req.URL.Query()
 	uid := queryString.Get("uid")
-
 	conn := AddConnection(uid)
+	defer DelConnection(conn)
 
 	timer := time.NewTimer(time.Minute * 6)
 	select {
@@ -19,9 +23,10 @@ func SyncGet(w http.ResponseWriter, req *http.Request) {
 		w.Write(messageData)
 	case <-timer.C:
 		// timeout
-		DelConnection(conn)
-		w.WriteHeader(http.StatusOK)
+		w.WriteHeader(http.StatusNoContent)
+		break
 	}
+
 }
 
 func SyncPush(w http.ResponseWriter, req *http.Request) {
@@ -33,7 +38,5 @@ func SyncPush(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-
 	go PushMessage(uid, data)
-
 }
