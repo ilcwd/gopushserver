@@ -32,19 +32,26 @@ func NewQueue(size int, expires time.Duration, recyleTime time.Duration) *Queue 
 	return &q
 }
 
+// if the queue is full and the enqueue operation
+// is undergoing, the tail of queue is removed
+// according to FIFO principle.
 func (q *Queue) Enqueue(data []byte) bool {
 	q.Lock()
 	defer q.Unlock()
 
 	maxSize := len(q.Messages)
+	newItemIndex := (q.Current + q.Length) % maxSize
 
-	if q.Length >= maxSize {
-		return false
+	if q.Length == maxSize {
+		q.Current = (q.Current + 1) % maxSize
+	} else {
+		q.Length++
 	}
-	newMessage := &(q.Messages[((q.Current + q.Length) % maxSize)])
+
+	newMessage := &(q.Messages[newItemIndex])
 	newMessage.Body = data
 	newMessage.Expires = time.Now().Add(q.Expires)
-	q.Length++
+
 	return true
 }
 

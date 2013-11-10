@@ -34,25 +34,24 @@ func TestMessageQueue(t *testing.T) {
 
 	q := NewQueue(QUEUE_SIZE, MESSAGE_EXPIRES, RECYCLE_TIME)
 	for i := 0; i < FISRT_ENQUEUE_AMOUNT; i++ {
-		if !q.Enqueue(newDataN(i)) {
-			t.Fatalf("enqueue failed at %d\n", i)
-		}
+		q.Enqueue(newDataN(i))
 	}
 
 	time.Sleep(FISRT_SLEEP_TIME)
 
 	for i := FISRT_ENQUEUE_AMOUNT; i < QUEUE_SIZE; i++ {
-		if !q.Enqueue(newDataN(i)) {
-			t.Fatalf("enqueue failed at %d\n", i)
-		}
+		q.Enqueue(newDataN(i))
 	}
 
-	if q.Enqueue(newDataN(QUEUE_SIZE)) {
-		t.Fatalf("enqueue should be fail if overflow\n")
-	}
+	// enqueue when overflow, the first item is removed.
+	q.Enqueue(newDataN(QUEUE_SIZE))
 
 	// all data are stored as expected
 	for i, m := range q.Messages {
+		// the first item is newly enqueued
+		if i == 0 {
+			i = QUEUE_SIZE
+		}
 		if !isDataN(m.Body, i) {
 			t.Fatalf("unexpected data %s, %d\n", string(m.Body), i)
 		}
@@ -61,7 +60,7 @@ func TestMessageQueue(t *testing.T) {
 	// deque some data from the first part.
 	for i := 0; i < FISRT_ENQUEUE_AMOUNT-1; i++ {
 		data := q.Dequeue()
-		if !isDataN(data, i) {
+		if !isDataN(data, i+1) {
 			t.Fatalf("unexpected data %s, %d\n", string(data), i)
 		}
 	}
@@ -82,22 +81,21 @@ func TestMessageQueue(t *testing.T) {
 	if q.Current != QUEUE_SIZE-1 {
 		t.Fatalf("unexpected current pointer %d", q.Current)
 	}
-	if q.Length != 1 {
+	// second part left 1, and the overflow 1
+	if q.Length != 2 {
 		t.Fatalf("unexpected queue length %d", q.Length)
 	}
 
 	// enqueue third round of data
 	for i := QUEUE_SIZE; i < QUEUE_SIZE+THIRD_ENQUEUE_AMOUNT; i++ {
-		if !q.Enqueue(newDataN(i)) {
-			t.Fatalf("enqueue failed at %d\n", i)
-		}
+		q.Enqueue(newDataN(i + 1))
 	}
 
 	// verify current pointer and queue length
 	if q.Current != QUEUE_SIZE-1 {
 		t.Fatalf("unexpected current pointer %d", q.Current)
 	}
-	if q.Length != 1+THIRD_ENQUEUE_AMOUNT {
+	if q.Length != 2+THIRD_ENQUEUE_AMOUNT {
 		t.Fatalf("unexpected queue length %d", q.Length)
 	}
 
