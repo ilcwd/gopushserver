@@ -2,16 +2,15 @@ package main
 
 import (
 	"gopushserver"
-	"time"
+	"log"
+	"net/http"
 )
 
 func main() {
-	q := gopushserver.NewQueue(10, time.Second)
 
-	q.Enqueue([]byte("data1"))
-	q.Enqueue([]byte("data2"))
-	q.Enqueue([]byte("data3"))
-	q.Enqueue([]byte("data4"))
-	q.Enqueue([]byte("data5"))
-	q.Enqueue([]byte("data6"))
+	log.SetFlags(log.Llongfile)
+
+	http.HandleFunc("/sync/get", gopushserver.SyncGet)
+	http.HandleFunc("/sync/push", gopushserver.SyncPush)
+	http.ListenAndServe("0.0.0.0:8002", nil)
 }
