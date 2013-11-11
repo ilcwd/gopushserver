@@ -22,7 +22,7 @@ func SyncGet(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write(messageData)
 	case <-timer.C:
-		// timeout
+		// timeout to release old / dead connections
 		w.WriteHeader(http.StatusNoContent)
 		break
 	}

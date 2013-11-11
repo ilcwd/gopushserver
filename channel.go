@@ -24,6 +24,8 @@ type channel struct {
 }
 
 var (
+	// TODO: all channel shares the same register map,
+	// lock is too expensive.
 	channelRegister map[string]channel
 	registerMutex   sync.Mutex
 	idRander        *rand.Rand
