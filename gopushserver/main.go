@@ -14,8 +14,10 @@ type GoPushServerConfig struct {
 var DefaultConfig GoPushServerConfig
 
 func main() {
-	flag.StringVar(&DefaultConfig.ADDR, "host", "0.0.0.0:8002", "http listening host.")
 	log.SetFlags(log.Llongfile | log.Ltime | log.Ldate)
+	flag.StringVar(&DefaultConfig.ADDR, "host", "0.0.0.0:8002", "http listening host.")
+
+	flag.Parse()
 
 	gopushserver.RegisterAPI()
 	log.Printf("Listening to %s ...", DefaultConfig.ADDR)

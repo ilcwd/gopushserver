@@ -6,6 +6,10 @@ import (
 	"time"
 )
 
+const (
+	KEEPALIVE_TIMEOUT = time.Minute * 6
+)
+
 // block to get messages.
 // if the client does not close normally,
 // we don't know if the client is alive,
@@ -16,7 +20,7 @@ func SyncGet(w http.ResponseWriter, req *http.Request) {
 	conn := AddConnection(uid)
 	defer DelConnection(conn)
 
-	timer := time.NewTimer(time.Minute * 6)
+	timer := time.NewTimer(KEEPALIVE_TIMEOUT)
 	select {
 	case messageData := <-conn.Receiver:
 		w.WriteHeader(http.StatusOK)
@@ -29,6 +33,7 @@ func SyncGet(w http.ResponseWriter, req *http.Request) {
 
 }
 
+// Send a message to the specified channel.
 func SyncPush(w http.ResponseWriter, req *http.Request) {
 	queryString := req.URL.Query()
 	uid := queryString.Get("uid")
@@ -39,4 +44,6 @@ func SyncPush(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	go PushMessage(uid, data)
+	// echo
+	w.Write(data)
 }
