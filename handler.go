@@ -10,10 +10,13 @@ const (
 	KEEPALIVE_TIMEOUT = time.Minute * 6
 )
 
-// block to get messages.
-// if the client does not close normally,
+// Block to get messages.
+//
+// If the client does not close normally,
 // we don't know if the client is alive,
-// so the message will be dequeue and send to the dead client.
+// so message will be dequeue and send to the dead client.
+// Client SHOULD wait until it receives a `204 No Content`,
+// normally it is 6 minutes' timeout.
 func SyncGet(w http.ResponseWriter, req *http.Request) {
 	queryString := req.URL.Query()
 	uid := queryString.Get("uid")
@@ -44,6 +47,9 @@ func SyncPush(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	go PushMessage(uid, data)
-	// echo
-	w.Write(data)
+
+	if DEBUG {
+		// echo
+		w.Write(data)
+	}
 }
